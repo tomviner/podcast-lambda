@@ -1,4 +1,5 @@
-from write_rss_feed import lambda_handler, DOMAIN, FEED_FILENAME
+from write_rss_feed import DOMAIN, FEED_FILENAME, lambda_handler
+
 
 def test_rss_feed_written(
         mocked_s3, uploaded_episodes, bucket, folder, domain, event):

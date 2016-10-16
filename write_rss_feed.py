@@ -1,12 +1,11 @@
 from __future__ import print_function
 
 import json
-import urllib
-from os import path
 import re
-import json
-from urlparse import urljoin
+import urllib
 from email.Utils import formatdate
+from os import path
+from urlparse import urljoin
 
 import boto3
 import botocore
