@@ -42,11 +42,13 @@ def natural_key(string_):
     """From http://stackoverflow.com/a/3033342/15890"""
     return [int(s) if s.isdigit() else s for s in re.split(r'(\d+)', string_)]
 
+
 def rssfeed(feed_data, items):
     item_xml = ''.join(
         ITEM_TEMPLATE.format(**item) for item in items
     )
     return FEED_TEMPLATE.format(items=item_xml, **feed_data)
+
 
 def episode_data(i, object_data, bucket, region):
     key = object_data['Key']
@@ -62,6 +64,7 @@ def episode_data(i, object_data, bucket, region):
         'length_secs': filesize / 1500,
         'date': formatdate(float(dt.strftime('%s'))),
     }
+
 
 def get_episode_data(bucket, folder, region):
     """Extract the following episode data:
@@ -80,6 +83,7 @@ def get_episode_data(bucket, folder, region):
         if obj['Key'] != folder
         if obj['Key'].endswith('.mp3')
     ]
+
 
 def write_feed(bucket, folder, region):
     episode_data = get_episode_data(bucket, folder, region)
@@ -102,6 +106,7 @@ def write_feed(bucket, folder, region):
         ContentType='application/xml'
     )
     return feed_data
+
 
 def write_index(bucket, feed_data):
     try:

@@ -1,4 +1,4 @@
-from write_rss_feed import DOMAIN, FEED_FILENAME, lambda_handler
+from write_rss_feed import FEED_FILENAME, lambda_handler
 
 
 def test_rss_feed_written(

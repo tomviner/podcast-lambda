@@ -9,26 +9,27 @@ from write_rss_feed import DOMAIN
 def region():
     return 'us-east-1'
 
+
 @pytest.fixture
 def domain(region, bucket):
     return DOMAIN.format(bucket=bucket, region=region)
+
 
 @pytest.fixture
 def mocked_s3():
     with mock_s3():
         yield boto3.client('s3')
 
+
 @pytest.fixture
 def bucket():
     return 'my-bucket'
+
 
 @pytest.fixture
 def folder():
     return 'Pod-Fever'
 
-@pytest.fixture
-def bucket():
-    return 'second-bucket'
 
 @pytest.fixture
 def folder2():
@@ -45,9 +46,11 @@ def uploaded_episodes(mocked_s3, bucket, folder):
             Key='{}/episode{}.mp3'.format(folder, i),
             Body='x' * size,)
 
+
 @pytest.fixture
 def event(bucket, folder):
     return make_event("{}/episode10.mp3".format(folder), bucket)
+
 
 @pytest.fixture
 def event2(bucket, folder2):
