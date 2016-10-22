@@ -2,13 +2,13 @@ from __future__ import print_function
 
 import json
 import re
-import urllib
+from urllib import quote_plus, unquote_plus
 from email.Utils import formatdate
 from os import path
 from urlparse import urljoin
 
 import boto3
-import botocore
+from botocore.exceptions import ClientError
 
 print('Loading function')
 
@@ -36,6 +36,7 @@ ITEM_TEMPLATE = """
 
 DOMAIN = 'http://{bucket}.s3-website-{region}.amazonaws.com'
 FEED_FILENAME = 'feed.xml'
+TEST_BUCKET = 'sourcebucket'
 
 
 def natural_key(string_):
@@ -59,8 +60,9 @@ def episode_data(i, object_data, bucket, region):
     domain = DOMAIN.format(bucket=bucket, region=region)
     return {
         'title': title,
-        'url': urljoin(domain, key),
+        'url': urljoin(domain, quote_plus(key, safe='/')),
         'filesize': filesize,
+        # dumb guess about duration
         'length_secs': filesize / 1500,
         'date': formatdate(float(dt.strftime('%s'))),
     }
@@ -71,7 +73,9 @@ def get_episode_data(bucket, folder, region):
 
     title, url, filesize, length_secs, date
     """
-    folder = folder.rstrip('/') + '/'
+    folder = (folder.rstrip('/') + '/').lstrip('/')
+    print('s3.list_objects_v2(Bucket={!r}, Prefix={!r})'.format(
+        bucket, folder))
     data = s3.list_objects_v2(Bucket=bucket, Prefix=folder)
     episodes = sorted(
         data['Contents'],
@@ -82,6 +86,7 @@ def get_episode_data(bucket, folder, region):
         for i, obj in enumerate(episodes)
         if obj['Key'] != folder
         if obj['Key'].endswith('.mp3')
+        if not obj['Key'].startswith('_')
     ]
 
 
@@ -89,7 +94,7 @@ def write_feed(bucket, folder, region):
     episode_data = get_episode_data(bucket, folder, region)
     feed_path = path.join(folder, FEED_FILENAME)
     domain = DOMAIN.format(bucket=bucket, region=region)
-    feed_url = urljoin(domain, feed_path)
+    feed_url = urljoin(domain, quote_plus(feed_path, safe='/'))
 
     feed_data = {
         'title': folder,
@@ -114,7 +119,7 @@ def write_index(bucket, feed_data):
             Bucket=bucket,
             Key='feeds.json',)
         feed_index = json.load(index['Body'])
-    except botocore.exceptions.ClientError as e:
+    except ClientError as e:
         error_code = e.response['Error']['Code']
         if error_code == 'NoSuchKey':
             feed_index = {}
@@ -130,11 +135,13 @@ def write_index(bucket, feed_data):
     )
     index_template = """
     <html>
-        {}
+        <body>
+            {}
+        </body>
     </html>
     """
     feed_links = [
-        '<a href="{0[url]}">{0[title]}</a>'.format(feed)
+        '<li><a href="{0[url]}">{0[title]}</a></li>'.format(feed)
         for feed in feed_index.values()
     ]
     html = index_template.format('<br>\n'.join(feed_links))
@@ -145,6 +152,31 @@ def write_index(bucket, feed_data):
         ContentType='text/html'
     )
 
+def get_bucket(event):
+    upload = event['Records'][0]['s3']
+    try:
+        bucket = upload['bucket']['name']
+    except KeyError:
+        pass
+    if bucket != TEST_BUCKET:
+        return bucket
+    return [
+        b['Name'] for b in s3.list_buckets()['Buckets']
+        if 'podcast' in b['Name']][0]
+
+def get_folders(event, bucket):
+    upload = event['Records'][0]['s3']
+    key = unquote_plus(upload['object']['key'].encode('utf8'))
+    print('Key={}'.format(key))
+    folder = path.split(key)[0]
+    if folder:
+        return {folder}
+    keys = s3.list_objects_v2(Bucket=bucket)
+    return {path.split(key)[0] for key in keys if path.split(key)[0]}
+
+def get_region(event):
+    return 'eu-west-1'
+    return event['Records'][0]['awsRegion']
 
 def lambda_handler(event, context):
     """Write an RSS Podcast Feed upon any change to mp3s on S3.
@@ -157,14 +189,17 @@ def lambda_handler(event, context):
     - Generate RSS Feed XML
     - Write RSS Feed
     """
-    print("Received event: " + json.dumps(event, indent=2))
+    print("Received event: {}".format(json.dumps(event, indent=2)))
 
     # Get the object from the event
-    upload = event['Records'][0]['s3']
-    bucket = upload['bucket']['name']
-    key = urllib.unquote_plus(upload['object']['key'].encode('utf8'))
-    print('Bucket={}, Key={}'.format(bucket, key))
-    folder = path.split(key)[0]
-    region = event['Records'][0]['awsRegion']
-    feed_data = write_feed(bucket, folder, region)
-    write_index(bucket, feed_data)
+    bucket = get_bucket(event)
+    region = get_region(event)
+    folders = get_folders(event, bucket)
+    print('Region={}, Bucket={}'.format(region, bucket))
+    log_data = {}
+    for folder in folders:
+        print('Folder={}'.format(folder))
+        feed_data = write_feed(bucket, folder, region)
+        write_index(bucket, feed_data)
+        log_data[folder] = feed_data
+    return log_data

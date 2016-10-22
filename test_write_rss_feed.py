@@ -1,3 +1,4 @@
+from urllib import quote_plus
 from write_rss_feed import FEED_FILENAME, lambda_handler
 
 
@@ -15,7 +16,8 @@ def test_rss_feed_written(
         if e['Key'].endswith('.mp3')
     ]
     for mp3 in mp3s:
-        enclosure = '<enclosure url="{}/{}"'.format(domain, mp3)
+        enclosure = '<enclosure url="{}/{}"'.format(
+            domain, quote_plus(mp3, safe='/'))
         assert enclosure in feed_xml
 
 

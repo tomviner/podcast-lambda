@@ -15,6 +15,7 @@ def domain(region, bucket):
     return DOMAIN.format(bucket=bucket, region=region)
 
 
+
 @pytest.fixture
 def mocked_s3():
     with mock_s3():
