@@ -1,10 +1,14 @@
-from urllib import quote_plus
+try:
+    from urllib import quote_plus
+except ImportError:
+    from urllib.parse import quote_plus
+from xml.sax.saxutils import escape
 from write_rss_feed import FEED_FILENAME, lambda_handler
 
 
 def test_rss_feed_written(
         mocked_s3, uploaded_episodes, bucket, folder, domain, event):
-    lambda_handler(event, None)
+    lambda_handler(event, context=None)
 
     feed_path = '{}/feed.xml'.format(folder)
     feed_xml = mocked_s3.get_object(
@@ -23,7 +27,7 @@ def test_rss_feed_written(
 
 def test_index_with_first_feed(
         mocked_s3, uploaded_episodes, bucket, folder, domain, event):
-    lambda_handler(event, None)
+    lambda_handler(event, context=None)
 
     index_html = mocked_s3.get_object(
         Bucket=bucket,
@@ -34,12 +38,12 @@ def test_index_with_first_feed(
     assert link in index_html
 
 
-def test_index_with_existing_feed(
+def test_index_with_additional_feed(
         mocked_s3, uploaded_episodes, bucket, domain,
         folder, event,
         folder2, event2
 ):
-    lambda_handler(event, None)
+    lambda_handler(event, context=None)
 
     mocked_s3.put_object(
         Bucket=bucket,
@@ -57,5 +61,5 @@ def test_index_with_existing_feed(
     assert link in index_html
 
     link2 = '<a href="{}/{}/{}">{}</a>'.format(
-        domain, folder2, FEED_FILENAME, folder2)
+        domain, quote_plus(folder2), FEED_FILENAME, escape(folder2))
     assert link2 in index_html

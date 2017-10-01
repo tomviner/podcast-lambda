@@ -34,7 +34,7 @@ def folder():
 
 @pytest.fixture
 def folder2():
-    return '2nd-podcast'
+    return '2nd-podcast & friends'
 
 
 @pytest.fixture

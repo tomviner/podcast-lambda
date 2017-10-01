@@ -2,13 +2,25 @@ from __future__ import print_function
 
 import json
 import re
-from urllib import quote_plus, unquote_plus
-from email.Utils import formatdate
+try:
+    from urllib import quote_plus, unquote_plus  # Python 2.X
+    from urlparse import urljoin
+except ImportError:
+    from urllib.parse import quote_plus, unquote_plus  # Python 3+
+    from urllib.parse import urljoin
+try:
+    from email.Utils import formatdate
+except ImportError:
+    from email.utils import formatdate
+from xml.sax.saxutils import escape
 from os import path
-from urlparse import urljoin
 
 import boto3
 from botocore.exceptions import ClientError
+
+class LambdaTestButton(Exception):
+    pass
+
 
 print('Loading function')
 
@@ -53,13 +65,13 @@ def rssfeed(feed_data, items):
 
 def episode_data(i, object_data, bucket, region):
     key = object_data['Key']
-    fn = path.split(key)[1]
+    fn = path.basename(key)
     title = path.splitext(fn)[0]
     filesize = object_data['Size']
     dt = object_data['LastModified']
     domain = DOMAIN.format(bucket=bucket, region=region)
     return {
-        'title': title,
+        'title': escape(title),
         'url': urljoin(domain, quote_plus(key, safe='/')),
         'filesize': filesize,
         # dumb guess about duration
@@ -94,13 +106,16 @@ def write_feed(bucket, folder, region):
     episode_data = get_episode_data(bucket, folder, region)
     feed_path = path.join(folder, FEED_FILENAME)
     domain = DOMAIN.format(bucket=bucket, region=region)
-    feed_url = urljoin(domain, quote_plus(feed_path, safe='/'))
+    encoded_path = quote_plus(feed_path, safe='/')
+    feed_url = urljoin(domain, encoded_path)
+    print(feed_path, feed_url)
 
     feed_data = {
-        'title': folder,
-        'description': folder,
+        'title': escape(folder),
+        'description': escape(folder),
         'url': feed_url,
         'path': feed_path,
+        'encoded_path': encoded_path,
     }
     feed = rssfeed(feed_data, episode_data)
     print(feed)
@@ -125,7 +140,7 @@ def write_index(bucket, feed_data):
             feed_index = {}
         else:
             raise e
-    feed_path = feed_data['path']
+    feed_path = feed_data['encoded_path']
     feed_index[feed_path] = feed_data
     s3.put_object(
         Bucket=bucket,
@@ -157,25 +172,34 @@ def get_bucket(event):
     try:
         bucket = upload['bucket']['name']
     except KeyError:
-        pass
-    if bucket != TEST_BUCKET:
+        raise LambdaTestButton
+    else:
+        if bucket == TEST_BUCKET:
+            raise LambdaTestButton
         return bucket
+
+def get_default_bucket():
     return [
         b['Name'] for b in s3.list_buckets()['Buckets']
         if 'podcast' in b['Name']][0]
 
 def get_folders(event, bucket):
+    print('get_folders')
     upload = event['Records'][0]['s3']
     key = unquote_plus(upload['object']['key'].encode('utf8'))
     print('Key={}'.format(key))
-    folder = path.split(key)[0]
+    folder = path.dirname(key)
+    print('Folder={}'.format(folder))
     if folder:
         return {folder}
-    keys = s3.list_objects_v2(Bucket=bucket)
-    return {path.split(key)[0] for key in keys if path.split(key)[0]}
+    key_data = s3.list_objects_v2(Bucket=bucket)
+    keys = [k['Key'] for k in key_data['Contents']]
+    print('keys={}'.format(keys))
+    return {path.dirname(key) for key in keys if path.dirname(key)}
 
-def get_region(event):
-    return 'eu-west-1'
+def get_region(event, is_test_button):
+    if is_test_button:
+        return 'eu-west-1'
     return event['Records'][0]['awsRegion']
 
 def lambda_handler(event, context):
@@ -191,10 +215,16 @@ def lambda_handler(event, context):
     """
     print("Received event: {}".format(json.dumps(event, indent=2)))
 
-    # Get the object from the event
-    bucket = get_bucket(event)
-    region = get_region(event)
+    is_test_button = False
+    try:
+        bucket = get_bucket(event)
+    except LambdaTestButton:
+        is_test_button = True
+        bucket = get_default_bucket()
+
+    region = get_region(event, is_test_button)
     folders = get_folders(event, bucket)
+    print('Folders={}'.format(folders))
     print('Region={}, Bucket={}'.format(region, bucket))
     log_data = {}
     for folder in folders:
