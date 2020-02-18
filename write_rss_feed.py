@@ -3,10 +3,10 @@ from __future__ import print_function
 import json
 import re
 try:
-    from urllib import quote_plus, unquote_plus  # Python 2.X
+    from urllib import quote_plus, unquote_plus
     from urlparse import urljoin
 except ImportError:
-    from urllib.parse import quote_plus, unquote_plus  # Python 3+
+    from urllib.parse import quote_plus, unquote_plus
     from urllib.parse import urljoin
 try:
     from email.Utils import formatdate
@@ -48,11 +48,14 @@ ITEM_TEMPLATE = """
 
 DOMAIN = 'http://{bucket}.s3-website-{region}.amazonaws.com'
 FEED_FILENAME = 'feed.xml'
+
 TEST_BUCKET = 'sourcebucket'
 
 
 def natural_key(string_):
-    """From http://stackoverflow.com/a/3033342/15890"""
+    """Split string_ into number / letter words, so e.g. A2 is lower than A10
+
+    From http://stackoverflow.com/a/3033342/15890"""
     return [int(s) if s.isdigit() else s for s in re.split(r'(\d+)', string_)]
 
 
@@ -61,6 +64,10 @@ def rssfeed(feed_data, items):
         ITEM_TEMPLATE.format(**item) for item in items
     )
     return FEED_TEMPLATE.format(items=item_xml, **feed_data)
+
+def deltaed_date_as_str(base_date, delta):
+    dsecs = delta * 24 * 60 * 60
+    return formatdate(dsecs + float(base_date.strftime('%s')))
 
 
 def episode_data(i, object_data, bucket, region):
@@ -76,7 +83,7 @@ def episode_data(i, object_data, bucket, region):
         'filesize': filesize,
         # dumb guess about duration
         'length_secs': filesize / 1500,
-        'date': formatdate(float(dt.strftime('%s'))),
+        'date': deltaed_date_as_str(dt, i),
     }
 
 
