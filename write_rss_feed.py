@@ -46,7 +46,7 @@ ITEM_TEMPLATE = """
             <pubDate>{date}</pubDate>
         </item>"""
 
-DOMAIN = 'http://{bucket}.s3-website-{region}.amazonaws.com'
+DOMAIN = 'http://{bucket}.s3-{region}.amazonaws.com'
 FEED_FILENAME = 'feed.xml'
 
 TEST_BUCKET = 'sourcebucket'

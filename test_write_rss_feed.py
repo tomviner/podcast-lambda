@@ -63,3 +63,8 @@ def test_index_with_additional_feed(
     link2 = '<a href="{}/{}/{}">{}</a>'.format(
         domain, quote_plus(folder2), FEED_FILENAME, escape(folder2))
     assert link2 in index_html
+
+# test next
+# - lambda test button
+# - no folder
+# -
