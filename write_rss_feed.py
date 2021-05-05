@@ -104,7 +104,7 @@ def get_episode_data(bucket, folder, region):
         episode_data(i, obj, bucket, region)
         for i, obj in enumerate(episodes)
         if obj['Key'] != folder
-        if obj['Key'].endswith('.mp3')
+        if obj['Key'].endswith(('.mp3', '.m4a', '.m4b'))
         if not obj['Key'].startswith('_')
     ]
 
