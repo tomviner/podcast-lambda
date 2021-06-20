@@ -3,6 +3,7 @@ import pytest
 from moto import mock_s3
 
 from write_rss_feed import DOMAIN
+import write_rss_feed
 
 
 @pytest.fixture
@@ -15,11 +16,12 @@ def domain(region, bucket):
     return DOMAIN.format(bucket=bucket, region=region)
 
 
-
 @pytest.fixture
-def mocked_s3():
+def mocked_s3(region):
     with mock_s3():
-        yield boto3.client('s3')
+        s3 = boto3.client('s3', region_name=region)
+        write_rss_feed.s3 = s3
+        yield s3
 
 
 @pytest.fixture

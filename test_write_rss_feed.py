@@ -13,7 +13,7 @@ def test_rss_feed_written(
     feed_path = '{}/feed.xml'.format(folder)
     feed_xml = mocked_s3.get_object(
         Bucket=bucket,
-        Key=feed_path)['Body'].read()
+        Key=feed_path)['Body'].read().decode()
     mp3s = [
         e['Key']
         for e in mocked_s3.list_objects_v2(Bucket=bucket)['Contents']
@@ -31,7 +31,7 @@ def test_index_with_first_feed(
 
     index_html = mocked_s3.get_object(
         Bucket=bucket,
-        Key='index.html',)['Body'].read()
+        Key='index.html',)['Body'].read().decode()
 
     link = '<a href="{}/{}/{}">{}</a>'.format(
         domain, folder, FEED_FILENAME, folder)
@@ -54,7 +54,7 @@ def test_index_with_additional_feed(
 
     index_html = mocked_s3.get_object(
         Bucket=bucket,
-        Key='index.html',)['Body'].read()
+        Key='index.html',)['Body'].read().decode()
 
     link = '<a href="{}/{}/{}">{}</a>'.format(
         domain, folder, FEED_FILENAME, folder)

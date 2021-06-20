@@ -193,7 +193,7 @@ def get_default_bucket():
 def get_folders(event, bucket):
     print('get_folders')
     upload = event['Records'][0]['s3']
-    key = unquote_plus(upload['object']['key'].encode('utf8'))
+    key = unquote_plus(upload['object']['key'])
     print('Key={}'.format(key))
     folder = path.dirname(key)
     print('Folder={}'.format(folder))
